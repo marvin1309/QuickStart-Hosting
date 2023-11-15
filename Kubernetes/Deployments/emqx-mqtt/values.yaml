@@ -1,0 +1,92 @@
+
+replicaCount: 1
+persistence:
+  enabled: true
+  #size: 5Gi
+  #storageClass: "longhorn"
+  #accessMode: ReadWriteMany
+  existingClaim: "longhorn-emqx-pvc"
+
+volumes:
+  data:
+    mountPath: /opt/emqx/data
+    subPath: data
+  etc:
+    mountPath: /opt/emqx/etc
+    subPath: etc
+  log:
+    mountPath: /opt/emqx/log
+    subPath: log
+
+resources: {}
+  # limits:
+  #   cpu: 500m
+  #   memory: 512Mi
+  # requests:
+  #   cpu: 500m
+  #   memory: 512Mi
+
+initContainers: {}
+  # - name: mysql-probe
+  #   image: alpine
+  #   command: ["sh", "-c", "for i in $(seq 1 300); do nc -zvw1 mysql 3306 && exit 0 || sleep 3; done; exit 1"]
+
+emqxConfig:
+  EMQX_CLUSTER__K8S__APISERVER: "https://kubernetes.default.svc:443"
+  EMQX_CLUSTER__K8S__ADDRESS_TYPE: "hostname"
+  EMQX_CLUSTER__K8S__SUFFIX: "svc.cluster.local"
+
+emqxAclConfig: >
+  {allow, {user, "dashboard"}, subscribe, ["$SYS/#"]}.
+  {allow, {ipaddr, "127.0.0.1"}, pubsub, ["$SYS/#", "#"]}.
+  {deny, all, subscribe, ["$SYS/#", {eq, "#"}]}.
+  {allow, all}.
+
+emqxLicenseSecretName:
+
+service:
+  type: LoadBalancer
+  mqtt: 1883
+  mqttssl: 8883
+  mgmt: 8081
+  ws: 8083
+  wss: 8084
+  dashboard: 18083
+  loadBalancerIP: 10.1.100.249  # Ersetze dies durch die gewünschte IP aus dem MetalLB-Bereich
+  loadBalancerSourceRanges: []  # Hier kannst du spezifische CIDRs festlegen, wenn du den Zugriff einschränken möchtest
+  annotations: {}
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+ingress:
+  dashboard:
+    enabled: false
+    annotations: {}
+    path: /
+    hosts:
+    - dashboard.emqx.int.famfeser.de
+    tls: []
+  mgmt:
+    enabled: false
+    annotations: {}
+    path: /
+    hosts:
+    - api.emqx.int.famfeser.de
+    tls: []
+
+podSecurityContext:
+  enabled: true
+  fsGroup: 1000
+  fsGroupChangePolicy: Always
+  runAsUser: 1000
+  supplementalGroups:
+    - 1000
+
+containerSecurityContext:
+  enabled: true
+  runAsNonRoot: true
+  runAsUser: 1000
